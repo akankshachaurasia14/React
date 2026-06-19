@@ -3,6 +3,11 @@ import './App.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
+const authStyle = {
+  background: 'linear-gradient(135deg, #0f172a, #1d4ed8)',
+  color: '#fff'
+}
+
 const sampleJobs = [
   {
     id: 1,
@@ -31,11 +36,11 @@ const sampleJobs = [
     title: 'Product Analyst',
     company: 'Northstar AI',
     type: 'Full-time',
-    location: 'New York',
-    salary: '$78K - $95K',
+    location: 'Bengaluru',
+    salary: '₹12L - ₹18L',
     skills: ['SQL', 'Data Analysis', 'Excel'],
     posted: '4 days ago',
-    description: 'Turn product usage data into insights that shape roadmap decisions.'
+    description: 'Turn product usage data into insights that shape roadmap decisions for growing teams.'
   },
   {
     id: 4,
@@ -51,13 +56,13 @@ const sampleJobs = [
 ]
 
 const initialProfile = {
-  name: 'Avery Brooks',
-  email: 'avery.brooks@email.com',
-  phone: '+1 (555) 843-1198',
+  name: 'Aarav Sharma',
+  email: 'aarav.sharma@email.com',
+  phone: '+91 98765 43210',
   title: 'Frontend Developer',
-  location: 'San Diego, CA',
+  location: 'Bengaluru, India',
   experience: '2+ years',
-  summary: 'Design-focused frontend developer who enjoys building clean, accessible web experiences.',
+  summary: 'Design-focused frontend developer who enjoys building clean, accessible web experiences for Indian startups and enterprises.',
   skills: ['React', 'JavaScript', 'CSS', 'UI Design']
 }
 
@@ -71,6 +76,14 @@ function App() {
   const [selectedSkill, setSelectedSkill] = useState('All')
   const [message, setMessage] = useState('')
   const [activeTab, setActiveTab] = useState('jobs')
+  const [authMode, setAuthMode] = useState('login')
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authForm, setAuthForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  })
   const [newJob, setNewJob] = useState({
     title: '',
     company: '',
@@ -232,6 +245,88 @@ function App() {
       console.error(error)
       setMessage('Could not post the job right now.')
     }
+  }
+
+  const handleAuthChange = (field, value) => {
+    setAuthForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleAuthSubmit = (event) => {
+    event.preventDefault()
+
+    if (authMode === 'signup' && authForm.password !== authForm.confirmPassword) {
+      setMessage('Passwords do not match.')
+      return
+    }
+
+    if (!authForm.email || !authForm.password || (authMode === 'signup' && !authForm.name)) {
+      setMessage('Please fill in all required fields.')
+      return
+    }
+
+    setIsAuthenticated(true)
+    setMessage(
+      authMode === 'signup'
+        ? 'Account created successfully.'
+        : 'Welcome back!'
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="auth-page" style={authStyle}>
+        <div className="auth-card">
+          <div>
+            <p className="eyebrow">HirePulse</p>
+            <h1>{authMode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
+            <p className="auth-subtitle">
+              {authMode === 'login'
+                ? 'Log in to explore opportunities'
+                : 'Start your career journey today'}
+            </p>
+          </div>
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            {authMode === 'signup' && (
+              <input
+                type="text"
+                placeholder="Full name"
+                value={authForm.name}
+                onChange={(e) => handleAuthChange('name', e.target.value)}
+              />
+            )}
+            <input
+              type="email"
+              placeholder="Email"
+              value={authForm.email}
+              onChange={(e) => handleAuthChange('email', e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={authForm.password}
+              onChange={(e) => handleAuthChange('password', e.target.value)}
+            />
+            {authMode === 'signup' && (
+              <input
+                type="password"
+                placeholder="Confirm password"
+                value={authForm.confirmPassword}
+                onChange={(e) => handleAuthChange('confirmPassword', e.target.value)}
+              />
+            )}
+            <button type="submit">
+              {authMode === 'login' ? 'Log In' : 'Sign Up'}
+            </button>
+          </form>
+          <p className="auth-toggle">
+            {authMode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
+            <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}>
+              {authMode === 'login' ? 'Sign up' : 'Log in'}
+            </button>
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
