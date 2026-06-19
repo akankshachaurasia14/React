@@ -14,8 +14,8 @@ const sampleJobs = [
     title: 'Frontend Developer',
     company: 'PulseTech',
     type: 'Full-time',
-    location: 'Remote',
-    salary: '$85K - $110K',
+    location: 'Hyderabad',
+    salary: '₹10L - ₹16L',
     skills: ['React', 'JavaScript', 'CSS'],
     posted: '2 days ago',
     description: 'Build responsive user interfaces for a fast-growing product team.'
@@ -25,8 +25,8 @@ const sampleJobs = [
     title: 'React Intern',
     company: 'BrightLoop',
     type: 'Internship',
-    location: 'Hybrid',
-    salary: '$18/hr',
+    location: 'Pune',
+    salary: '₹15k/month',
     skills: ['React', 'UI Design', 'Git'],
     posted: 'Today',
     description: 'Support the engineering team on product features and design implementation.'
@@ -47,8 +47,8 @@ const sampleJobs = [
     title: 'UX Designer',
     company: 'Studio Mint',
     type: 'Contract',
-    location: 'Remote',
-    salary: '$50/hr',
+    location: 'Mumbai',
+    salary: '₹40k/day',
     skills: ['Figma', 'UI Design', 'Prototyping'],
     posted: '1 week ago',
     description: 'Create intuitive experiences for our SaaS dashboard and mobile apps.'
@@ -350,6 +350,12 @@ function App() {
             Internships
           </button>
           <button
+            className={activeTab === 'post' ? 'nav-btn active' : 'nav-btn'}
+            onClick={() => setActiveTab('post')}
+          >
+            Post Job
+          </button>
+          <button
             className={activeTab === 'profile' ? 'nav-btn active' : 'nav-btn'}
             onClick={() => setActiveTab('profile')}
           >
@@ -385,205 +391,212 @@ function App() {
 
         {message && <div className="notice-banner">{message}</div>}
 
-        <section className="content-grid">
-          <section className="jobs-panel">
-            <div className="panel-header-row">
-              <div>
-                <p className="section-label">Opportunities</p>
-                <h2>
-                  {activeTab === 'internships'
-                    ? 'Internship opportunities'
-                    : activeTab === 'profile'
-                      ? 'Your job matches'
-                      : 'Latest job openings'}
-                </h2>
-              </div>
-              <span className="result-count">{filteredJobs.length} results</span>
-            </div>
-            <div className="filters-row">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by role, company, or skill"
-              />
-              <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
-                <option>All</option>
-                <option>Full-time</option>
-                <option>Internship</option>
-                <option>Contract</option>
-              </select>
-              <select
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-              >
-                <option>All</option>
-                {uniqueLocations.map((location) => (
-                  <option key={location}>{location}</option>
-                ))}
-              </select>
-              <select value={selectedSkill} onChange={(e) => setSelectedSkill(e.target.value)}>
-                <option>All</option>
-                {uniqueSkills.map((skill) => (
-                  <option key={skill}>{skill}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="job-list">
-              {filteredJobs.map((job) => (
-                <article className="job-card" key={job.id}>
-                  <div className="job-card-header">
-                    <div>
-                      <p className="job-type">{job.type}</p>
-                      <h3>{job.title}</h3>
-                      <p className="job-company">{job.company}</p>
-                    </div>
-                    <span className="job-salary">{job.salary}</span>
-                  </div>
-                  <p className="job-description">{job.description}</p>
-                  <div className="job-meta">
-                    <span>{job.location}</span>
-                    <span>{job.posted}</span>
-                  </div>
-                  <div className="skill-tags">
-                    {(job.skills || []).map((skill) => (
-                      <span key={skill}>{skill}</span>
-                    ))}
-                  </div>
-                  <button
-                    className="apply-btn"
-                    onClick={() => handleApply(job)}
-                    disabled={job.applied}
+        {activeTab === 'post' ? (
+          <section className="post-session-panel">
+            <div className="post-session-card">
+              <p className="section-label">Recruiter tools</p>
+              <h2>Post a new opportunity</h2>
+              <form className="post-session-form" onSubmit={handlePostJob}>
+                <div className="post-session-grid">
+                  <input
+                    value={newJob.title}
+                    onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
+                    placeholder="Job title"
+                    required
+                  />
+                  <input
+                    value={newJob.company}
+                    onChange={(e) => setNewJob({ ...newJob, company: e.target.value })}
+                    placeholder="Company"
+                    required
+                  />
+                  <select
+                    value={newJob.type}
+                    onChange={(e) => setNewJob({ ...newJob, type: e.target.value })}
                   >
-                    {job.applied ? 'Applied' : 'Apply Now'}
-                  </button>
-                </article>
-              ))}
+                    <option>Full-time</option>
+                    <option>Internship</option>
+                    <option>Contract</option>
+                  </select>
+                  <input
+                    value={newJob.location}
+                    onChange={(e) => setNewJob({ ...newJob, location: e.target.value })}
+                    placeholder="Location"
+                    required
+                  />
+                  <input
+                    value={newJob.salary}
+                    onChange={(e) => setNewJob({ ...newJob, salary: e.target.value })}
+                    placeholder="Salary"
+                  />
+                  <input
+                    value={newJob.skills}
+                    onChange={(e) => setNewJob({ ...newJob, skills: e.target.value })}
+                    placeholder="Skills (comma separated)"
+                  />
+                </div>
+                <button type="submit">Post Job</button>
+              </form>
             </div>
           </section>
-
-          <aside className="sidebar">
-            <section className="profile-panel">
-              <div className="panel-header">
-                <div className="profile-avatar">AB</div>
+        ) : (
+          <section className="content-grid">
+            <section className="jobs-panel">
+              <div className="panel-header-row">
                 <div>
-                  <h3>{profile.name}</h3>
-                  <span>{profile.title}</span>
+                  <p className="section-label">Opportunities</p>
+                  <h2>
+                    {activeTab === 'internships'
+                      ? 'Internship opportunities'
+                      : activeTab === 'profile'
+                        ? 'Your job matches'
+                        : 'Latest job openings'}
+                  </h2>
                 </div>
+                <span className="result-count">{filteredJobs.length} results</span>
               </div>
-              <div className="profile-form">
+              <div className="filters-row">
                 <input
-                  value={profile.name}
-                  onChange={(e) => handleProfileChange('name', e.target.value)}
-                  placeholder="Full name"
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search by role, company, or skill"
                 />
-                <input
-                  value={profile.email}
-                  onChange={(e) => handleProfileChange('email', e.target.value)}
-                  placeholder="Email"
-                />
-                <input
-                  value={profile.phone}
-                  onChange={(e) => handleProfileChange('phone', e.target.value)}
-                  placeholder="Phone"
-                />
-                <input
-                  value={profile.location}
-                  onChange={(e) => handleProfileChange('location', e.target.value)}
-                  placeholder="Location"
-                />
-                <input
-                  value={profile.experience}
-                  onChange={(e) => handleProfileChange('experience', e.target.value)}
-                  placeholder="Experience"
-                />
-                <textarea
-                  value={profile.summary}
-                  onChange={(e) => handleProfileChange('summary', e.target.value)}
-                  rows="4"
-                />
-                <div className="skill-tags profile-skill-tags">
-                  {profile.skills.map((skill) => (
-                    <span key={skill}>{skill}</span>
-                  ))}
-                </div>
-                <label className="upload-box">
-                  <span>Upload resume</span>
-                  <input type="file" onChange={handleResumeChange} />
-                </label>
-                <p className="resume-label">Current file: {resumeName}</p>
-              </div>
-            </section>
-
-            <section className="suggestion-panel">
-              <h3>Recommended jobs</h3>
-              <div className="suggestion-list">
-                {suggestedJobs.map((job) => (
-                  <div key={job.id}>
-                    <strong>{job.title}</strong>
-                    <p>{job.company} • {job.location}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="suggestion-panel">
-              <h3>Suggested internships</h3>
-              <div className="suggestion-list">
-                {suggestedInternships.map((job) => (
-                  <div key={job.id}>
-                    <strong>{job.title}</strong>
-                    <p>{job.company} • {job.location}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="post-panel">
-              <h3>Post a job</h3>
-              <form onSubmit={handlePostJob}>
-                <input
-                  value={newJob.title}
-                  onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
-                  placeholder="Job title"
-                  required
-                />
-                <input
-                  value={newJob.company}
-                  onChange={(e) => setNewJob({ ...newJob, company: e.target.value })}
-                  placeholder="Company"
-                  required
-                />
-                <select
-                  value={newJob.type}
-                  onChange={(e) => setNewJob({ ...newJob, type: e.target.value })}
-                >
+                <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
+                  <option>All</option>
                   <option>Full-time</option>
                   <option>Internship</option>
                   <option>Contract</option>
                 </select>
-                <input
-                  value={newJob.location}
-                  onChange={(e) => setNewJob({ ...newJob, location: e.target.value })}
-                  placeholder="Location"
-                  required
-                />
-                <input
-                  value={newJob.salary}
-                  onChange={(e) => setNewJob({ ...newJob, salary: e.target.value })}
-                  placeholder="Salary"
-                />
-                <input
-                  value={newJob.skills}
-                  onChange={(e) => setNewJob({ ...newJob, skills: e.target.value })}
-                  placeholder="Skills (comma separated)"
-                />
-                <button type="submit">Post Job</button>
-              </form>
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                >
+                  <option>All</option>
+                  {uniqueLocations.map((location) => (
+                    <option key={location}>{location}</option>
+                  ))}
+                </select>
+                <select value={selectedSkill} onChange={(e) => setSelectedSkill(e.target.value)}>
+                  <option>All</option>
+                  {uniqueSkills.map((skill) => (
+                    <option key={skill}>{skill}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="job-list">
+                {filteredJobs.map((job) => (
+                  <article className="job-card" key={job.id}>
+                    <div className="job-card-header">
+                      <div>
+                        <p className="job-type">{job.type}</p>
+                        <h3>{job.title}</h3>
+                        <p className="job-company">{job.company}</p>
+                      </div>
+                      <span className="job-salary">{job.salary}</span>
+                    </div>
+                    <p className="job-description">{job.description}</p>
+                    <div className="job-meta">
+                      <span>{job.location}</span>
+                      <span>{job.posted}</span>
+                    </div>
+                    <div className="skill-tags">
+                      {(job.skills || []).map((skill) => (
+                        <span key={skill}>{skill}</span>
+                      ))}
+                    </div>
+                    <button
+                      className="apply-btn"
+                      onClick={() => handleApply(job)}
+                      disabled={job.applied}
+                    >
+                      {job.applied ? 'Applied' : 'Apply Now'}
+                    </button>
+                  </article>
+                ))}
+              </div>
             </section>
-          </aside>
-        </section>
+
+            <aside className="sidebar">
+              <section className="profile-panel">
+                <div className="panel-header">
+                  <div className="profile-avatar">AC</div>
+                  <div>
+                    <h3>{profile.name}</h3>
+                    <span>{profile.title}</span>
+                  </div>
+                </div>
+                <div className="profile-form">
+                  <input
+                    value={profile.name}
+                    onChange={(e) => handleProfileChange('name', e.target.value)}
+                    placeholder="Full name"
+                  />
+                  <input
+                    value={profile.email}
+                    onChange={(e) => handleProfileChange('email', e.target.value)}
+                    placeholder="Email"
+                  />
+                  <input
+                    value={profile.phone}
+                    onChange={(e) => handleProfileChange('phone', e.target.value)}
+                    placeholder="Phone"
+                  />
+                  <input
+                    value={profile.location}
+                    onChange={(e) => handleProfileChange('location', e.target.value)}
+                    placeholder="Location"
+                  />
+                  <input
+                    value={profile.experience}
+                    onChange={(e) => handleProfileChange('experience', e.target.value)}
+                    placeholder="Experience"
+                  />
+                  <textarea
+                    value={profile.summary}
+                    onChange={(e) => handleProfileChange('summary', e.target.value)}
+                    rows="4"
+                  />
+                  <div className="skill-tags profile-skill-tags">
+                    {profile.skills.map((skill) => (
+                      <span key={skill}>{skill}</span>
+                    ))}
+                  </div>
+                  <label className="upload-box">
+                    <span>Upload resume</span>
+                    <input type="file" onChange={handleResumeChange} />
+                  </label>
+                  <p className="resume-label">Current file: {resumeName}</p>
+                </div>
+              </section>
+
+              <section className="suggestion-panel">
+                <h3>Recommended jobs</h3>
+                <div className="suggestion-list">
+                  {suggestedJobs.map((job) => (
+                    <div key={job.id}>
+                      <strong>{job.title}</strong>
+                      <p>{job.company} • {job.location}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="suggestion-panel">
+                <h3>Suggested internships</h3>
+                <div className="suggestion-list">
+                  {suggestedInternships.map((job) => (
+                    <div key={job.id}>
+                      <strong>{job.title}</strong>
+                      <p>{job.company} • {job.location}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </aside>
+          </section>
+        )}
       </main>
     </div>
   )
