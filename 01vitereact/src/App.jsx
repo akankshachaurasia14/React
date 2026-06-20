@@ -285,18 +285,25 @@ function App() {
     }
 
     const lowerQuestion = question.toLowerCase()
-    let answer = 'I can help with resume improvements, ATS tips, or job-fit questions.'
+    const skillText = profile.skills.slice(0, 5).join(', ')
+    const roleText = profile.title || 'your target role'
+
+    let answer = `Based on your profile, I recommend focusing on ${roleText} with skills like ${skillText}. For a stronger resume, highlight achievements, metrics, and keywords from job descriptions.`
 
     if (lowerQuestion.includes('ats') || lowerQuestion.includes('score')) {
-      answer = `Your current ATS score looks around ${atsAnalysis.score}%. To improve it, focus on matching keywords from the job description and adding clear section headings.`
-    } else if (lowerQuestion.includes('resume') || lowerQuestion.includes('improve')) {
-      answer = `Try improving your resume by adding measurable achievements, stronger action verbs, and relevant keywords like ${profile.skills.slice(0, 4).join(', ')}.`
-    } else if (lowerQuestion.includes('job') || lowerQuestion.includes('role')) {
-      answer = `Based on your profile, the strongest opportunities are roles related to ${profile.title || 'your current title'} and skills such as ${profile.skills.slice(0, 4).join(', ')}.`
+      answer = `Your ATS score is about ${atsAnalysis.score}%. The biggest boosts will come from adding relevant keywords, clearer section headings, and measurable results that match the job description.`
+    } else if (lowerQuestion.includes('resume') || lowerQuestion.includes('improve') || lowerQuestion.includes('rewrite')) {
+      answer = `To improve your resume, start with a strong summary, add 3–5 key skills, and describe impact with numbers. For example, instead of saying “worked on projects,” say “built 3 React dashboards that improved onboarding speed.”`
+    } else if (lowerQuestion.includes('job') || lowerQuestion.includes('role') || lowerQuestion.includes('match')) {
+      answer = `Your profile looks best for roles related to ${roleText}. The most relevant skills right now are ${skillText}, so tailor your resume to match those keywords.`
     } else if (lowerQuestion.includes('interview') || lowerQuestion.includes('prepare')) {
-      answer = 'Practice answering questions using the STAR method, and prepare 2–3 examples that show impact, teamwork, and problem-solving.'
-    } else if (lowerQuestion.includes('skills') || lowerQuestion.includes('learn')) {
-      answer = 'Priority skills to add are React, JavaScript, SQL, and communication. You can also mention tools you already use in your projects.'
+      answer = 'Use the STAR method for answers, prepare examples for leadership, conflict resolution, and problem-solving, and practice explaining your impact clearly.'
+    } else if (lowerQuestion.includes('skills') || lowerQuestion.includes('learn') || lowerQuestion.includes('upgrade')) {
+      answer = `Good skills to add next are SQL, API development, communication, and project ownership. If you already know some of them, mention them in your resume with examples.`
+    } else if (lowerQuestion.includes('summary') || lowerQuestion.includes('objective')) {
+      answer = `A strong summary for you could be: “${profile.title || 'Professional'} with experience in ${skillText}. Skilled at building user-friendly solutions, improving workflows, and delivering measurable results.”`
+    } else if (lowerQuestion.includes('cover letter') || lowerQuestion.includes('letter')) {
+      answer = 'For a cover letter, open with why you are interested in the role, mention 1–2 relevant achievements, and close by explaining how you can contribute to the company.'
     }
 
     setChatMessages((prev) => [
