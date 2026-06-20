@@ -37,6 +37,15 @@ function App() {
   const [authMode, setAuthMode] = useState('login')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [user, setUser] = useState(null)
+  const [theme, setTheme] = useState(() => localStorage.getItem('hirepulse-theme') || 'light')
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState([
+    {
+      sender: 'bot',
+      text: 'Hi! I can help you improve your resume, understand ATS scores, and suggest jobs that fit your profile.'
+    }
+  ])
   const [authForm, setAuthForm] = useState({
     name: '',
     email: '',
@@ -65,6 +74,10 @@ function App() {
       setProfile(JSON.parse(savedProfile))
     }
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem('hirepulse-theme', theme)
+  }, [theme])
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -174,6 +187,60 @@ function App() {
     [jobs]
   )
 
+  const atsAnalysis = useMemo(() => {
+    const text = `${resumeContent} ${profile.summary} ${profile.skills.join(' ')}`.toLowerCase()
+    let score = 58
+    const recommendations = []
+
+    if (profile.name && profile.email && profile.phone) {
+      score += 8
+    }
+
+    if (profile.summary && profile.summary.length > 80) {
+      score += 10
+    } else {
+      recommendations.push('Add a stronger summary that highlights your key achievements.')
+    }
+
+    if (profile.skills.length >= 4) {
+      score += 10
+    } else {
+      recommendations.push('Add more relevant skills to match job requirements.')
+    }
+
+    if (resumeContent && resumeContent.length > 300) {
+      score += 10
+    } else {
+      recommendations.push('Expand your resume with more experience details and results.')
+    }
+
+    const keywords = [
+      'react', 'javascript', 'python', 'sql', 'node', 'css', 'figma', 'ui design',
+      'api', 'mongodb', 'redux', 'typescript', 'excel', 'machine learning'
+    ]
+
+    const matchedKeywords = keywords.filter((keyword) => text.includes(keyword))
+    score += Math.min(12, matchedKeywords.length * 2)
+
+    if (!/\b(education|experience|skills|projects|summary)\b/i.test(resumeContent || '')) {
+      recommendations.push('Organize your resume with clear sections like Skills, Experience, and Projects.')
+    }
+
+    if (!/\b(\d{10}|\+91|\+1|\+44)\b/.test(profile.phone || '')) {
+      recommendations.push('Include a valid phone number for recruiters to contact you.')
+    }
+
+    if (profile.title && profile.title.length > 3) {
+      score += 2
+    }
+
+    const finalScore = Math.min(98, Math.max(45, Math.round(score)))
+    return {
+      score: finalScore,
+      recommendations: recommendations.slice(0, 5)
+    }
+  }, [profile, resumeContent])
+
   const filteredJobs = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
     const tabFilteredJobs =
@@ -208,6 +275,36 @@ function App() {
 
   const handleProfileChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleSendChat = (event) => {
+    event.preventDefault()
+    const question = chatInput.trim()
+    if (!question) {
+      return
+    }
+
+    const lowerQuestion = question.toLowerCase()
+    let answer = 'I can help with resume improvements, ATS tips, or job-fit questions.'
+
+    if (lowerQuestion.includes('ats') || lowerQuestion.includes('score')) {
+      answer = `Your current ATS score looks around ${atsAnalysis.score}%. To improve it, focus on matching keywords from the job description and adding clear section headings.`
+    } else if (lowerQuestion.includes('resume') || lowerQuestion.includes('improve')) {
+      answer = `Try improving your resume by adding measurable achievements, stronger action verbs, and relevant keywords like ${profile.skills.slice(0, 4).join(', ')}.`
+    } else if (lowerQuestion.includes('job') || lowerQuestion.includes('role')) {
+      answer = `Based on your profile, the strongest opportunities are roles related to ${profile.title || 'your current title'} and skills such as ${profile.skills.slice(0, 4).join(', ')}.`
+    } else if (lowerQuestion.includes('interview') || lowerQuestion.includes('prepare')) {
+      answer = 'Practice answering questions using the STAR method, and prepare 2–3 examples that show impact, teamwork, and problem-solving.'
+    } else if (lowerQuestion.includes('skills') || lowerQuestion.includes('learn')) {
+      answer = 'Priority skills to add are React, JavaScript, SQL, and communication. You can also mention tools you already use in your projects.'
+    }
+
+    setChatMessages((prev) => [
+      ...prev,
+      { sender: 'user', text: question },
+      { sender: 'bot', text: answer }
+    ])
+    setChatInput('')
   }
 
   const handleResumeChange = async (event) => {
@@ -391,6 +488,8 @@ function App() {
     }
   }
 
+  const appThemeClass = theme === 'dark' ? 'app-shell theme-dark' : 'app-shell theme-light'
+
   if (!isAuthenticated) {
     return (
       <div className="auth-page" style={authStyle}>
@@ -404,6 +503,7 @@ function App() {
                 : 'Start your career journey today'}
             </p>
           </div>
+          {message && <div className="notice-banner">{message}</div>}
           <form className="auth-form" onSubmit={handleAuthSubmit}>
             {authMode === 'signup' && (
               <input
@@ -439,7 +539,13 @@ function App() {
           </form>
           <p className="auth-toggle">
             {authMode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
-            <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}>
+            <button
+              type="button"
+              onClick={() => {
+                setMessage('')
+                setAuthMode(authMode === 'login' ? 'signup' : 'login')
+              }}
+            >
               {authMode === 'login' ? 'Sign up' : 'Log in'}
             </button>
           </p>
@@ -449,7 +555,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={appThemeClass}>
       <header className="top-nav">
         <div>
           <span className="brand-badge">HirePulse</span>
@@ -481,6 +587,17 @@ function App() {
             Profile
           </button>
         </nav>
+        <div className="nav-actions">
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))}
+          >
+            {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+          </button>
+          <button className="chat-trigger" onClick={() => setIsChatOpen((prev) => !prev)}>
+            AI Resume Coach
+          </button>
+        </div>
       </header>
 
       <main className="dashboard">
@@ -707,6 +824,24 @@ function App() {
                 </div>
               </section>
 
+              <section className="ats-panel">
+                <div className="ats-header">
+                  <div>
+                    <p className="section-label">ATS insight</p>
+                    <h3>Resume score</h3>
+                  </div>
+                  <span className="ats-score">{atsAnalysis.score}%</span>
+                </div>
+                <div className="score-bar">
+                  <span style={{ width: `${atsAnalysis.score}%` }} />
+                </div>
+                <ul className="recommendation-list">
+                  {atsAnalysis.recommendations.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </section>
+
               <section className="suggestion-panel">
                 <h3>Recommended jobs</h3>
                 <div className="suggestion-list">
@@ -734,6 +869,33 @@ function App() {
           </section>
         )}
       </main>
+
+      {isChatOpen && (
+        <section className="chatbot-panel">
+          <div className="chatbot-header">
+            <div>
+              <p className="section-label">AI assistant</p>
+              <h3>Resume Coach</h3>
+            </div>
+            <button onClick={() => setIsChatOpen(false)}>×</button>
+          </div>
+          <div className="chatbot-messages">
+            {chatMessages.map((entry, index) => (
+              <div key={`${entry.sender}-${index}`} className={`chat-bubble ${entry.sender}`}>
+                {entry.text}
+              </div>
+            ))}
+          </div>
+          <form className="chatbot-form" onSubmit={handleSendChat}>
+            <input
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Ask about ATS, resume, or jobs"
+            />
+            <button type="submit">Send</button>
+          </form>
+        </section>
+      )}
     </div>
   )
 }

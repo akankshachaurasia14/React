@@ -125,6 +125,13 @@ const defaultJobs = [
   }
 ]
 
+const memoryJobs = defaultJobs.map((job, index) => ({ id: index + 1, ...job }))
+const memoryUsers = []
+const memoryProfiles = {}
+const memoryApplications = []
+
+const isMongoReady = () => mongoose.connection.readyState === 1
+
 const normalizeText = (value = '') => value.toLowerCase()
 
 const calculateJobMatch = (job, profile, resumeText = '') => {
@@ -168,6 +175,10 @@ const calculateJobMatch = (job, profile, resumeText = '') => {
 }
 
 const seedJobs = async () => {
+  if (!isMongoReady()) {
+    return
+  }
+
   const count = await Job.countDocuments()
   if (count === 0) {
     await Job.insertMany(defaultJobs)
@@ -180,23 +191,36 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/jobs', async (req, res) => {
   try {
-    const jobs = await Job.find().sort({ createdAt: -1 })
-    res.json(jobs)
+    if (isMongoReady()) {
+      const jobs = await Job.find().sort({ createdAt: -1 })
+      return res.json(jobs)
+    }
+
+    return res.json(memoryJobs)
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch jobs' })
+    return res.status(500).json({ message: 'Failed to fetch jobs' })
   }
 })
 
 app.post('/api/jobs', async (req, res) => {
   try {
-    const job = await Job.create({
+    if (isMongoReady()) {
+      const job = await Job.create({
+        ...req.body,
+        posted: req.body.posted || 'Just now'
+      })
+      return res.status(201).json(job)
+    }
+
+    const job = {
+      id: Date.now(),
       ...req.body,
       posted: req.body.posted || 'Just now'
-    })
-
-    res.status(201).json(job)
+    }
+    memoryJobs.unshift(job)
+    return res.status(201).json(job)
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create job' })
+    return res.status(500).json({ message: 'Failed to create job' })
   }
 })
 
@@ -208,17 +232,33 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ message: 'Name, email, and password are required.' })
     }
 
-    const existingUser = await User.findOne({ email })
+    if (isMongoReady()) {
+      const existingUser = await User.findOne({ email })
+      if (existingUser) {
+        return res.status(409).json({ message: 'Email already exists.' })
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10)
+      const user = await User.create({ name, email, password: hashedPassword })
+      return res.status(201).json({ id: user._id, name: user.name, email: user.email })
+    }
+
+    const existingUser = memoryUsers.find((user) => user.email === email)
     if (existingUser) {
       return res.status(409).json({ message: 'Email already exists.' })
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
-    const user = await User.create({ name, email, password: hashedPassword })
-
-    res.status(201).json({ id: user._id, name: user.name, email: user.email })
+    const user = {
+      id: Date.now(),
+      name,
+      email,
+      password: hashedPassword
+    }
+    memoryUsers.push(user)
+    return res.status(201).json({ id: user.id, name: user.name, email: user.email })
   } catch (error) {
-    res.status(500).json({ message: 'Signup failed' })
+    return res.status(500).json({ message: 'Signup failed' })
   }
 })
 
@@ -230,7 +270,21 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required.' })
     }
 
-    const user = await User.findOne({ email })
+    if (isMongoReady()) {
+      const user = await User.findOne({ email })
+      if (!user) {
+        return res.status(401).json({ message: 'Invalid email or password.' })
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password)
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: 'Invalid email or password.' })
+      }
+
+      return res.json({ id: user._id, name: user.name, email: user.email })
+    }
+
+    const user = memoryUsers.find((candidate) => candidate.email === email)
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password.' })
     }
@@ -240,9 +294,9 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password.' })
     }
 
-    res.json({ id: user._id, name: user.name, email: user.email })
+    return res.json({ id: user.id, name: user.name, email: user.email })
   } catch (error) {
-    res.status(500).json({ message: 'Login failed' })
+    return res.status(500).json({ message: 'Login failed' })
   }
 })
 
@@ -254,55 +308,89 @@ app.post('/api/profile', async (req, res) => {
       return res.status(400).json({ message: 'User id is required.' })
     }
 
-    const updatedProfile = await Profile.findOneAndUpdate(
-      { userId },
-      { userId, profile, resumeName, resumeContent },
-      { new: true, upsert: true }
-    )
+    if (isMongoReady()) {
+      const updatedProfile = await Profile.findOneAndUpdate(
+        { userId },
+        { userId, profile, resumeName, resumeContent },
+        { new: true, upsert: true }
+      )
+      return res.json(updatedProfile)
+    }
 
-    res.json(updatedProfile)
+    memoryProfiles[userId] = {
+      userId,
+      profile,
+      resumeName,
+      resumeContent,
+      updatedAt: new Date().toISOString()
+    }
+
+    return res.json(memoryProfiles[userId])
   } catch (error) {
-    res.status(500).json({ message: 'Profile save failed' })
+    return res.status(500).json({ message: 'Profile save failed' })
   }
 })
 
 app.post('/api/jobs/match', async (req, res) => {
   try {
     const { profile = {}, resumeContent = '' } = req.body
-    const jobs = await Job.find().sort({ createdAt: -1 })
+
+    let jobs = []
+    if (isMongoReady()) {
+      jobs = await Job.find().sort({ createdAt: -1 })
+    } else {
+      jobs = memoryJobs
+    }
 
     const scoredJobs = jobs
       .map((job) => ({
-        ...job.toObject(),
-        matchScore: calculateJobMatch(job.toObject(), profile, resumeContent)
+        ...(job.toObject ? job.toObject() : job),
+        matchScore: calculateJobMatch(
+          job.toObject ? job.toObject() : job,
+          profile,
+          resumeContent
+        )
       }))
       .sort((a, b) => b.matchScore - a.matchScore)
 
-    res.json({ jobs: scoredJobs })
+    return res.json({ jobs: scoredJobs })
   } catch (error) {
-    res.status(500).json({ message: 'Job matching failed' })
+    return res.status(500).json({ message: 'Job matching failed' })
   }
 })
 
 app.get('/api/applications', async (req, res) => {
   try {
-    const applications = await Application.find().sort({ createdAt: -1 })
-    res.json(applications)
+    if (isMongoReady()) {
+      const applications = await Application.find().sort({ createdAt: -1 })
+      return res.json(applications)
+    }
+
+    return res.json(memoryApplications)
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch applications' })
+    return res.status(500).json({ message: 'Failed to fetch applications' })
   }
 })
 
 app.post('/api/applications', async (req, res) => {
   try {
-    const application = await Application.create({
+    if (isMongoReady()) {
+      const application = await Application.create({
+        ...req.body,
+        status: 'Applied'
+      })
+      return res.status(201).json(application)
+    }
+
+    const application = {
+      id: Date.now(),
       ...req.body,
       status: 'Applied'
-    })
-
-    res.status(201).json(application)
+    }
+    memoryApplications.push(application)
+    return res.status(201).json(application)
   } catch (error) {
-    res.status(500).json({ message: 'Application failed' })
+    return res.status(500).json({ message: 'Application failed' })
   }
 })
 
@@ -315,6 +403,10 @@ const startServer = async () => {
     })
   } catch (error) {
     console.error('MongoDB connection error:', error)
+    console.log('Starting server with in-memory fallback mode...')
+    app.listen(PORT, () => {
+      console.log(`API running at http://localhost:${PORT} (fallback mode)`)
+    })
   }
 }
 
