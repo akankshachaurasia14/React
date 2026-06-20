@@ -2,74 +2,32 @@ import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const USER_KEY = 'hirepulse-user'
+const PROFILE_KEY = 'hirepulse-profile'
 
 const authStyle = {
   background: 'linear-gradient(135deg, #0f172a, #1d4ed8)',
   color: '#fff'
 }
 
-const sampleJobs = [
-  {
-    id: 1,
-    title: 'Frontend Developer',
-    company: 'PulseTech',
-    type: 'Full-time',
-    location: 'Hyderabad',
-    salary: '₹10L - ₹16L',
-    skills: ['React', 'JavaScript', 'CSS'],
-    posted: '2 days ago',
-    description: 'Build responsive user interfaces for a fast-growing product team.'
-  },
-  {
-    id: 2,
-    title: 'React Intern',
-    company: 'BrightLoop',
-    type: 'Internship',
-    location: 'Pune',
-    salary: '₹15k/month',
-    skills: ['React', 'UI Design', 'Git'],
-    posted: 'Today',
-    description: 'Support the engineering team on product features and design implementation.'
-  },
-  {
-    id: 3,
-    title: 'Product Analyst',
-    company: 'Northstar AI',
-    type: 'Full-time',
-    location: 'Bengaluru',
-    salary: '₹12L - ₹18L',
-    skills: ['SQL', 'Data Analysis', 'Excel'],
-    posted: '4 days ago',
-    description: 'Turn product usage data into insights that shape roadmap decisions for growing teams.'
-  },
-  {
-    id: 4,
-    title: 'UX Designer',
-    company: 'Studio Mint',
-    type: 'Contract',
-    location: 'Mumbai',
-    salary: '₹40k/day',
-    skills: ['Figma', 'UI Design', 'Prototyping'],
-    posted: '1 week ago',
-    description: 'Create intuitive experiences for our SaaS dashboard and mobile apps.'
-  }
-]
-
-const initialProfile = {
+const defaultProfile = {
   name: 'Aarav Sharma',
   email: 'aarav.sharma@email.com',
   phone: '+91 98765 43210',
   title: 'Frontend Developer',
-  location: 'Bengaluru, India',
+  location: 'Bengaluru',
   experience: '2+ years',
-  summary: 'Design-focused frontend developer who enjoys building clean, accessible web experiences for Indian startups and enterprises.',
+  summary:
+    'Design-focused frontend developer who enjoys building clean, accessible web experiences for Indian startups and enterprises.',
   skills: ['React', 'JavaScript', 'CSS', 'UI Design']
 }
 
 function App() {
-  const [jobs, setJobs] = useState(sampleJobs)
-  const [profile, setProfile] = useState(initialProfile)
+  const [jobs, setJobs] = useState([])
+  const [matchedJobs, setMatchedJobs] = useState([])
+  const [profile, setProfile] = useState(defaultProfile)
   const [resumeName, setResumeName] = useState('resume.pdf')
+  const [resumeContent, setResumeContent] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState('All')
   const [selectedLocation, setSelectedLocation] = useState('All')
@@ -78,6 +36,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('jobs')
   const [authMode, setAuthMode] = useState('login')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [user, setUser] = useState(null)
   const [authForm, setAuthForm] = useState({
     name: '',
     email: '',
@@ -94,6 +53,20 @@ function App() {
   })
 
   useEffect(() => {
+    const savedUser = localStorage.getItem(USER_KEY)
+    const savedProfile = localStorage.getItem(PROFILE_KEY)
+
+    if (savedUser) {
+      setUser(JSON.parse(savedUser))
+      setIsAuthenticated(true)
+    }
+
+    if (savedProfile) {
+      setProfile(JSON.parse(savedProfile))
+    }
+  }, [])
+
+  useEffect(() => {
     const loadJobs = async () => {
       try {
         const response = await fetch(`${API_URL}/api/jobs`)
@@ -105,12 +78,91 @@ function App() {
           setJobs(data)
         }
       } catch (error) {
-        console.warn('Using sample job data because the API is unavailable:', error)
+        console.warn('Falling back to sample data:', error)
+        setJobs([
+          {
+            id: 1,
+            title: 'Frontend Developer',
+            company: 'PulseTech',
+            type: 'Full-time',
+            location: 'Bengaluru',
+            salary: '₹10L - ₹16L',
+            skills: ['React', 'JavaScript', 'CSS'],
+            posted: '2 days ago',
+            description: 'Build responsive user interfaces for a fast-growing product team.'
+          },
+          {
+            id: 2,
+            title: 'React Intern',
+            company: 'BrightLoop',
+            type: 'Internship',
+            location: 'Pune',
+            salary: '₹15k/month',
+            skills: ['React', 'UI Design', 'Git'],
+            posted: 'Today',
+            description: 'Support the engineering team on product features and design implementation.'
+          }
+        ])
       }
     }
 
     loadJobs()
   }, [])
+
+  const saveProfileToServer = async (nextProfile = profile, nextResumeName = resumeName, nextResumeContent = resumeContent) => {
+    if (!user) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          profile: nextProfile,
+          resumeName: nextResumeName,
+          resumeContent: nextResumeContent
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Profile save failed')
+      }
+
+      const matchResponse = await fetch(`${API_URL}/api/jobs/match`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: nextProfile,
+          resumeContent: nextResumeContent
+        })
+      })
+
+      if (!matchResponse.ok) {
+        throw new Error('Matching failed')
+      }
+
+      const matchData = await matchResponse.json()
+      setMatchedJobs(matchData.jobs || [])
+      return true
+    } catch (error) {
+      console.error(error)
+      return false
+    }
+  }
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return
+    }
+
+    const sync = async () => {
+      await saveProfileToServer()
+    }
+
+    sync()
+  }, [isAuthenticated, user, profile, resumeContent, resumeName])
 
   const uniqueSkills = useMemo(
     () => Array.from(new Set(jobs.flatMap((job) => job.skills || []))).sort(),
@@ -134,51 +186,54 @@ function App() {
         !term ||
         job.title.toLowerCase().includes(term) ||
         job.company.toLowerCase().includes(term) ||
-        job.skills.some((skill) => skill.toLowerCase().includes(term))
+        (job.skills || []).some((skill) => skill.toLowerCase().includes(term))
 
       const matchesType = selectedType === 'All' || job.type === selectedType
       const matchesLocation =
         selectedLocation === 'All' || job.location === selectedLocation
       const matchesSkill =
-        selectedSkill === 'All' || job.skills.includes(selectedSkill)
+        selectedSkill === 'All' || (job.skills || []).includes(selectedSkill)
 
       return matchesSearch && matchesType && matchesLocation && matchesSkill
     })
   }, [activeTab, jobs, searchTerm, selectedType, selectedLocation, selectedSkill])
 
   const suggestedJobs = useMemo(() => {
-    return jobs
-      .filter(
-        (job) =>
-          job.type !== 'Internship' &&
-          (job.skills || []).some((skill) => profile.skills.includes(skill))
-      )
-      .slice(0, 3)
-  }, [jobs, profile.skills])
+    return matchedJobs.filter((job) => job.type !== 'Internship').slice(0, 4)
+  }, [matchedJobs])
 
   const suggestedInternships = useMemo(() => {
-    return jobs
-      .filter(
-        (job) =>
-          job.type === 'Internship' &&
-          (job.skills || []).some((skill) => profile.skills.includes(skill))
-      )
-      .slice(0, 3)
-  }, [jobs, profile.skills])
+    return matchedJobs.filter((job) => job.type === 'Internship').slice(0, 3)
+  }, [matchedJobs])
 
   const handleProfileChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleResumeChange = (event) => {
+  const handleResumeChange = async (event) => {
     const file = event.target.files?.[0]
-    if (file) {
+    if (!file) {
+      return
+    }
+
+    try {
+      const nextContent = await file.text()
       setResumeName(file.name)
+      setResumeContent(nextContent)
       setMessage(`Resume uploaded: ${file.name}`)
+    } catch (error) {
+      setResumeName(file.name)
+      setResumeContent('')
+      setMessage(`Resume selected: ${file.name}`)
     }
   }
 
   const handleApply = async (job) => {
+    if (!user) {
+      setMessage('Please log in before applying.')
+      return
+    }
+
     try {
       const response = await fetch(`${API_URL}/api/applications`, {
         method: 'POST',
@@ -189,7 +244,8 @@ function App() {
           company: job.company,
           candidateName: profile.name,
           candidateEmail: profile.email,
-          resumeName
+          resumeName,
+          applicantId: user.id
         })
       })
 
@@ -251,7 +307,7 @@ function App() {
     setAuthForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleAuthSubmit = (event) => {
+  const handleAuthSubmit = async (event) => {
     event.preventDefault()
 
     if (authMode === 'signup' && authForm.password !== authForm.confirmPassword) {
@@ -264,12 +320,75 @@ function App() {
       return
     }
 
-    setIsAuthenticated(true)
-    setMessage(
-      authMode === 'signup'
-        ? 'Account created successfully.'
-        : 'Welcome back!'
-    )
+    try {
+      const endpoint = authMode === 'signup' ? '/api/auth/signup' : '/api/auth/login'
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          authMode === 'signup'
+            ? {
+                name: authForm.name,
+                email: authForm.email,
+                password: authForm.password
+              }
+            : {
+                email: authForm.email,
+                password: authForm.password
+              }
+        )
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Auth failed')
+      }
+
+      const nextUser = data
+      setUser(nextUser)
+      setIsAuthenticated(true)
+      localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+      if (authMode === 'signup') {
+        const nextProfile = {
+          ...defaultProfile,
+          name: nextUser.name,
+          email: nextUser.email
+        }
+        setProfile(nextProfile)
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(nextProfile))
+      } else {
+        const storedProfile = localStorage.getItem(PROFILE_KEY)
+        if (storedProfile) {
+          setProfile(JSON.parse(storedProfile))
+        }
+      }
+      setMessage(
+        authMode === 'signup'
+          ? 'Account created successfully.'
+          : 'Welcome back!'
+      )
+    } catch (error) {
+      console.error(error)
+      setMessage(error.message || 'Unable to complete authentication.')
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    const updatedProfile = {
+      ...profile,
+      email: user?.email || profile.email
+    }
+
+    setProfile(updatedProfile)
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(updatedProfile))
+    const success = await saveProfileToServer(updatedProfile)
+
+    if (success) {
+      setMessage('Profile saved and resume matches updated.')
+    } else {
+      setMessage('Profile saved locally, but matching update failed.')
+    }
   }
 
   if (!isAuthenticated) {
@@ -371,7 +490,7 @@ function App() {
             <h1>Discover jobs and internships that fit your goals</h1>
           </div>
           <div className="hero-right">
-            <div className="match-pill">98% profile match</div>
+            <div className="match-pill">{matchedJobs.length} matched roles</div>
             <div className="hero-stats">
               <div>
                 <strong>{jobs.length}</strong>
@@ -449,7 +568,7 @@ function App() {
                     {activeTab === 'internships'
                       ? 'Internship opportunities'
                       : activeTab === 'profile'
-                        ? 'Your job matches'
+                        ? 'Resume-matched jobs'
                         : 'Latest job openings'}
                   </h2>
                 </div>
@@ -521,7 +640,7 @@ function App() {
             <aside className="sidebar">
               <section className="profile-panel">
                 <div className="panel-header">
-                  <div className="profile-avatar">AC</div>
+                  <div className="profile-avatar">{profile.name.split(' ').map((item) => item[0]).join('').slice(0, 2)}</div>
                   <div>
                     <h3>{profile.name}</h3>
                     <span>{profile.title}</span>
@@ -553,21 +672,38 @@ function App() {
                     onChange={(e) => handleProfileChange('experience', e.target.value)}
                     placeholder="Experience"
                   />
+                  <input
+                    value={profile.title}
+                    onChange={(e) => handleProfileChange('title', e.target.value)}
+                    placeholder="Professional title"
+                  />
                   <textarea
                     value={profile.summary}
                     onChange={(e) => handleProfileChange('summary', e.target.value)}
                     rows="4"
+                    placeholder="Professional summary"
                   />
-                  <div className="skill-tags profile-skill-tags">
-                    {profile.skills.map((skill) => (
-                      <span key={skill}>{skill}</span>
-                    ))}
-                  </div>
+                  <input
+                    value={profile.skills.join(', ')}
+                    onChange={(e) =>
+                      handleProfileChange(
+                        'skills',
+                        e.target.value
+                          .split(',')
+                          .map((skill) => skill.trim())
+                          .filter(Boolean)
+                      )
+                    }
+                    placeholder="Skills (comma separated)"
+                  />
                   <label className="upload-box">
-                    <span>Upload resume</span>
+                    <span>Upload resume / CV</span>
                     <input type="file" onChange={handleResumeChange} />
                   </label>
                   <p className="resume-label">Current file: {resumeName}</p>
+                  <button className="apply-btn" onClick={handleSaveProfile}>
+                    Save Profile
+                  </button>
                 </div>
               </section>
 
